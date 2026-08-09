@@ -1,15 +1,19 @@
 package com.example.ui
 
+import android.content.Context
+import android.content.Intent
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import com.example.application.AudioTransportCoordinator
 import com.example.model.AudioTransportStats
 import com.example.model.LogEntry
+import com.example.service.AudioBridgeService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class MainViewModel(
-    val coordinator: AudioTransportCoordinator = AudioTransportCoordinator()
+    val coordinator: AudioTransportCoordinator = AudioBridgeService.coordinator
 ) : ViewModel() {
 
     private val _pcIpInput = MutableStateFlow("192.168.1.100")
@@ -45,20 +49,25 @@ class MainViewModel(
         _isMicEnabled.value = enabled
     }
 
-    fun toggleTransport(outputDir: java.io.File? = null) {
+    fun toggleTransport(context: Context) {
         if (isRunning.value) {
-            coordinator.stop()
+            val stopIntent = Intent(context, AudioBridgeService::class.java).apply {
+                action = AudioBridgeService.ACTION_STOP
+            }
+            context.startService(stopIntent)
         } else {
             val ip = _pcIpInput.value.trim().ifBlank { "192.168.1.100" }
             val speakerPort = _speakerPortInput.value.toIntOrNull() ?: 5000
             val micPort = _micPortInput.value.toIntOrNull() ?: 5002
-            coordinator.start(
-                backendIp = ip,
-                speakerPort = speakerPort,
-                micPort = micPort,
-                isMicEnabled = _isMicEnabled.value,
-                outputDir = outputDir
-            )
+
+            val startIntent = Intent(context, AudioBridgeService::class.java).apply {
+                action = AudioBridgeService.ACTION_START
+                putExtra(AudioBridgeService.EXTRA_BACKEND_IP, ip)
+                putExtra(AudioBridgeService.EXTRA_SPEAKER_PORT, speakerPort)
+                putExtra(AudioBridgeService.EXTRA_MIC_PORT, micPort)
+                putExtra(AudioBridgeService.EXTRA_IS_MIC_ENABLED, _isMicEnabled.value)
+            }
+            ContextCompat.startForegroundService(context, startIntent)
         }
     }
 
@@ -68,6 +77,6 @@ class MainViewModel(
 
     override fun onCleared() {
         super.onCleared()
-        coordinator.stop()
+        // Do not stop coordinator here: foreground service owns the bridge lifecycle.
     }
 }

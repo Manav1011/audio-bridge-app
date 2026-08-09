@@ -2,6 +2,7 @@ package com.example.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -60,6 +61,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -109,12 +111,20 @@ fun MainScreen(
 
     val keyboardController = LocalSoftwareKeyboardController.current
 
+    val permissionsToRequest = remember {
+        val list = mutableListOf(Manifest.permission.RECORD_AUDIO)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            list.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        list.toTypedArray()
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted || !isMicEnabled) {
-            val outputDir = context.getExternalFilesDir(null) ?: context.cacheDir
-            viewModel.toggleTransport(outputDir)
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val micGranted = permissions[Manifest.permission.RECORD_AUDIO] ?: false
+        if (micGranted || !isMicEnabled) {
+            viewModel.toggleTransport(context)
         }
     }
 
@@ -357,7 +367,7 @@ fun MainScreen(
                         onClick = {
                             keyboardController?.hide()
                             if (isRunning) {
-                                viewModel.toggleTransport()
+                                viewModel.toggleTransport(context)
                             } else {
                                 if (isMicEnabled) {
                                     val hasPermission = ContextCompat.checkSelfPermission(
@@ -366,14 +376,12 @@ fun MainScreen(
                                     ) == PackageManager.PERMISSION_GRANTED
 
                                     if (hasPermission) {
-                                        val outputDir = context.getExternalFilesDir(null) ?: context.cacheDir
-                                        viewModel.toggleTransport(outputDir)
+                                        viewModel.toggleTransport(context)
                                     } else {
-                                        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                        permissionLauncher.launch(permissionsToRequest)
                                     }
                                 } else {
-                                    val outputDir = context.getExternalFilesDir(null) ?: context.cacheDir
-                                    viewModel.toggleTransport(outputDir)
+                                    viewModel.toggleTransport(context)
                                 }
                             }
                         },
