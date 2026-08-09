@@ -1,0 +1,6 @@
+{
+  "name": "Audio Bridge",
+  "description": "Local-network audio bridge UDP socket and protocol verification skeleton",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
