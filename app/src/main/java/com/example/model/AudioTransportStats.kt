@@ -11,5 +11,7 @@ data class AudioTransportStats(
     val malformedPackets: Long = 0,
     val playbackUnderruns: Long = 0,
     val recorderOverruns: Long = 0,
-    val isMicConnected: Boolean = false
+    val isMicConnected: Boolean = false,
+    val isSpeakerConnected: Boolean = false,
+    val isSpeakerListening: Boolean = false
 )

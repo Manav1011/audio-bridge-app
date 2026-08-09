@@ -225,7 +225,7 @@ fun MainScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("rx_port_input"),
-                            label = { Text("Speaker Port", color = TextMuted, fontSize = 11.sp) },
+                            label = { Text("Speaker TCP Port", color = TextMuted, fontSize = 11.sp) },
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.Speaker,
@@ -260,7 +260,7 @@ fun MainScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("tx_port_input"),
-                            label = { Text("Mic Port", color = TextMuted, fontSize = 11.sp) },
+                            label = { Text("Mic TCP Port", color = TextMuted, fontSize = 11.sp) },
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.Mic,
@@ -656,7 +656,7 @@ private fun ActiveStreamCard(
                 StreamDetailRow(
                     icon = Icons.Default.Speaker,
                     label = "Speaker Output",
-                    value = "UDP Port $speakerPort (48 kHz Stereo)"
+                    value = "TCP Server Port $speakerPort (48 kHz Stereo)"
                 )
                 StreamDetailRow(
                     icon = Icons.Default.Mic,
@@ -733,8 +733,8 @@ private fun AudioSpecsCard() {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                SpecBadge(title = "SPEAKER", desc = "UDP • 48kHz Stereo", modifier = Modifier.weight(1f))
-                SpecBadge(title = "MICROPHONE", desc = "TCP • 48kHz PCM", modifier = Modifier.weight(1f))
+                SpecBadge(title = "SPEAKER", desc = "TCP Server • 48kHz Stereo", modifier = Modifier.weight(1f))
+                SpecBadge(title = "MICROPHONE", desc = "TCP Client • 48kHz PCM", modifier = Modifier.weight(1f))
             }
         }
     }

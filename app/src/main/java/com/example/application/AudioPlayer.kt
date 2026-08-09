@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicLong
 class AudioPlayer {
 
     private var audioTrack: AudioTrack? = null
-    private val pcmQueue = LinkedBlockingQueue<ByteArray>(500) // Max 500 chunks (~2.5s buffer)
+    private val pcmQueue = LinkedBlockingQueue<ByteArray>(1000) // Max 1000 chunks (~5s buffer)
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var playbackJob: Job? = null
@@ -28,7 +28,7 @@ class AudioPlayer {
     @Volatile
     private var isPlaying = false
 
-    private val PREBUFFER_CHUNKS = 6 // ~30ms of audio prebuffer
+    private val PREBUFFER_CHUNKS = 10 // ~100ms of audio prebuffer
 
     fun start() {
         stop()

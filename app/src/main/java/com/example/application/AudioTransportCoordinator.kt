@@ -4,7 +4,7 @@ import com.example.model.AudioTransportStats
 import com.example.model.LogEntry
 import com.example.model.LogType
 import com.example.transport.TcpAudioSender
-import com.example.transport.UdpAudioReceiver
+import com.example.transport.TcpSpeakerServer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 class AudioTransportCoordinator(
-    private val receiver: UdpAudioReceiver = UdpAudioReceiver(),
+    private val tcpSpeakerServer: TcpSpeakerServer = TcpSpeakerServer(),
     private val player: AudioPlayer = AudioPlayer(),
     private val recorder: AudioRecorder = AudioRecorder(),
     private val tcpSender: TcpAudioSender = TcpAudioSender()
@@ -38,9 +38,13 @@ class AudioTransportCoordinator(
     private var statsJob: Job? = null
 
     init {
-        // Speaker path: UDP Receiver -> Audio Player
-        receiver.onPcmReceived = { pcm ->
+        // Speaker path: TCP Server -> Audio Player
+        tcpSpeakerServer.onPcmReceived = { pcm ->
             player.submitPcm(pcm)
+        }
+
+        tcpSpeakerServer.onLog = { msg ->
+            addLog(msg, LogType.SYSTEM)
         }
 
         // Microphone path: Audio Recorder -> TCP Sender (Backend :5002)
@@ -56,7 +60,7 @@ class AudioTransportCoordinator(
             addLog(msg, LogType.SYSTEM)
         }
 
-        addLog("AudioTransportCoordinator initialized. Final Architecture: Microphone (TCP) | Speaker (UDP)", LogType.SYSTEM)
+        addLog("AudioTransportCoordinator initialized. Final Architecture: Microphone (TCP :5002) | Speaker (TCP Server :5000)", LogType.SYSTEM)
     }
 
     @Synchronized
@@ -68,13 +72,12 @@ class AudioTransportCoordinator(
         try {
             lastSavedCaptureNotice.value = null
             addLog("Starting Audio Bridge... Backend IP: $backendIp", LogType.SYSTEM)
-            addLog("Speaker path: UDP Port $speakerPort | Microphone path: TCP Port $micPort", LogType.SYSTEM)
+            addLog("Speaker path: TCP Server Port $speakerPort | Microphone path: TCP Port $micPort", LogType.SYSTEM)
 
-            // Start Speaker UDP receiver & player with capture file setup
-            receiver.start(speakerPort, outputDir)
+            // Start Speaker TCP server & player
+            tcpSpeakerServer.start(speakerPort)
             player.start()
-            val capturePath = receiver.lastSavedCapturePath
-            addLog("Speaker playback & UDP diagnostic capture active: $capturePath", LogType.SYSTEM)
+            addLog("Speaker TCP Server listening on port $speakerPort. Playback ready.", LogType.SYSTEM)
 
             // Start Microphone capture & TCP sender if enabled
             if (isMicEnabled) {
@@ -83,7 +86,7 @@ class AudioTransportCoordinator(
                 val formatDesc = recorder.actualCaptureFormatDescription
                 addLog("Microphone capture active (TCP Port $micPort): $formatDesc", LogType.SYSTEM)
             } else {
-                addLog("Microphone is Muted (OFF). Speaker UDP receiver active.", LogType.SYSTEM)
+                addLog("Microphone is Muted (OFF). Speaker TCP Server active.", LogType.SYSTEM)
             }
 
             _isRunning.value = true
@@ -115,19 +118,10 @@ class AudioTransportCoordinator(
 
         tcpSender.stop()
         recorder.stop()
-        receiver.stop()
+        tcpSpeakerServer.stop()
         player.stop()
 
         updateStats()
-
-        val savedPath = receiver.lastSavedCapturePath
-        val savedSize = receiver.lastSavedCaptureSize
-        if (savedPath != null) {
-            val sizeFormatted = formatBytes(savedSize)
-            val noticeMsg = "Speaker UDP recording saved:\n $savedPath\n Size: $sizeFormatted"
-            lastSavedCaptureNotice.value = noticeMsg
-            addLog(noticeMsg, LogType.SYSTEM)
-        }
 
         addLog("Audio Bridge stopped cleanly.", LogType.SYSTEM)
     }
@@ -141,15 +135,13 @@ class AudioTransportCoordinator(
         _stats.value = AudioTransportStats(
             txPackets = tcpSender.pcmChunks.get(),
             txBytes = tcpSender.pcmBytesSent.get(),
-            rxPackets = receiver.rxPackets.get(),
-            rxBytes = receiver.rxBytes.get(),
-            sequenceGaps = receiver.sequenceGaps.get(),
-            duplicates = receiver.duplicates.get(),
-            outOfOrder = receiver.outOfOrder.get(),
-            malformedPackets = receiver.malformedPackets.get(),
+            rxPackets = tcpSpeakerServer.pcmChunksReceived.get(),
+            rxBytes = tcpSpeakerServer.pcmBytesReceived.get(),
             playbackUnderruns = player.playbackUnderruns.get(),
             recorderOverruns = recorder.recorderOverruns.get(),
-            isMicConnected = tcpSender.isConnected
+            isMicConnected = tcpSender.isConnected,
+            isSpeakerConnected = tcpSpeakerServer.isConnected,
+            isSpeakerListening = tcpSpeakerServer.isListening
         )
     }
 
